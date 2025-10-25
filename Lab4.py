@@ -19,24 +19,120 @@ import argparse
 import math
 import os
 
+
 # You may need to define the Tree node and add extra helper functions here
 def read_training_data(infile,percent):
-    datamap= {}
-    attvalues={}
+    try:
+        datamap= {}
+        attvalues={}
 
-    with open(infile, 'r') as f:
-        attline= f.readline().strip()[1:]
-        atts= attline.split('|')
-    numAtts= len(atts)-1
+        with open(infile, 'r') as f:
+            attline= f.readline().strip()[1:]
+            atts= attline.split('|')
+            numAtts= len(atts)-1
 
-    for a in atts:
-        attvalues[a]=[]
+            for a in atts:
+                attvalues[a]=[]
 
-    index=0
-    with open(infile, 'r') as f:
-        f.readline()
+            index=0
+            for line in f:
+                tokens = line.strip().split()
+                dataclass= tokens[0]
 
-        str= attvalues.get(atts[])
+                if dataclass not in attvalues[atts[0]]:
+                    attvalues[atts[0]].append(dataclass)
+
+                if dataclass not in datamap:
+                    datamap[dataclass]= []
+
+                datapoint= []
+                for i in range(numAtts):
+                    val =tokens[i+1]
+                    datapoint.append(val)
+
+                    if val not in attvalues[atts[i+1]]:
+                        attvalues[atts[i+1]].append(val)
+
+                if index % 100 < percent:
+                    datamap[dataclass].append(datapoint)
+
+                index += 1
+
+            numclasses= len(datamap.keys())
+
+    except IOError:
+        print("Error reading file: ", infile)
+        exit(1)
+
+def build_tree():
+    root = TreeNode(None)
+
+    currfreeatts =[]
+    for i in range (numAtts):
+        currfreeatts.add(atts[i+1])
+
+    root= build_tree_node(None,currfreeatts,datamap)
+
+def build_tree_node(parent, currfreeatts, nodedata):
+    curr= TreeNode(parent)
+
+    minEnt= 1.0
+    minAtt= None
+
+    for i in range (numatts):
+        att= currfreeatts[i]
+
+        if att is not None:
+            vals= attvalues[att]
+            partition= []
+            for _ in range (len(vals)):
+                row= [0] * numclasses
+                partition.append(row)
+
+            for j in range(numclasses):
+                outcome=attvalues[atts[0][i]]
+                l=nodeData[outcome]
+
+                for l2 in l:
+                    partition[vals.index(l2[i])][j] += 1
+
+            ent= partition_entropy(partition)
+
+            if ent< minent:
+                minent= ent
+                minatt = att
+
+    if minatt is None:
+        max_count =0
+        max_class= "undefined"
+        for i in range (numclasses):
+            outcome= attvalues[atts[0]][j]
+            if len(nodeData[outcome]) >= max_count:
+                max_count= len(nodedata[outcome])
+                max_class = outcome
+
+        curr.returnval=max_class
+        return curr
+
+    curr.attribute =minAtt
+    attindex= currfreeatts,index(minatt)
+    currfreeatts[attindex]= None
+
+    for i in attvalues[minatt]:
+        tempmap= {}
+        for j in range (numclasses):
+            outcome= attvalues[atts[0]][j]
+            trimlist=[]
+            l = nodedata[outcome]
+            for l2 in l:
+                if l2[attindex] == v:
+                    trimlist.append(l2)
+            tempmap[outcome]= trimlist
+        print(v,"--->", end="")
+        curr.children
+
+
+
 
 
 
