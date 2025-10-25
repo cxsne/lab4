@@ -20,8 +20,24 @@ import math
 import os
 
 
+datamap= {}
+attvalues={}
+atts=[]
+numatts=0
+numclasses=0
+root=None
+
+class Treenode:
+    def __init__(self, parent):
+        self.parent= parent
+        self.children= {}
+        self.attribute= "None"
+        self.returnval =None
+
+
 # You may need to define the Tree node and add extra helper functions here
 def read_training_data(infile,percent):
+    global datamap,attvalues,atts,numatts,numclasses
     try:
         datamap= {}
         attvalues={}
@@ -29,7 +45,7 @@ def read_training_data(infile,percent):
         with open(infile, 'r') as f:
             attline= f.readline().strip()[1:]
             atts= attline.split('|')
-            numAtts= len(atts)-1
+            numatts= len(atts)-1
 
             for a in atts:
                 attvalues[a]=[]
@@ -46,7 +62,7 @@ def read_training_data(infile,percent):
                     datamap[dataclass]= []
 
                 datapoint= []
-                for i in range(numAtts):
+                for i in range(numatts):
                     val =tokens[i+1]
                     datapoint.append(val)
 
@@ -65,86 +81,145 @@ def read_training_data(infile,percent):
         exit(1)
 
 def build_tree():
-    root = TreeNode(None)
-
-    currfreeatts =[]
-    for i in range (numAtts):
-        currfreeatts.add(atts[i+1])
-
+    global root
+    root = Treenode(None)
+    currfreeatts = [atts[i+1] for i in range(numatts)]
     root= build_tree_node(None,currfreeatts,datamap)
 
+
 def build_tree_node(parent, currfreeatts, nodedata):
-    curr= TreeNode(parent)
-
-    minEnt= 1.0
-    minAtt= None
-
-    for i in range (numatts):
-        att= currfreeatts[i]
-
-        if att is not None:
-            vals= attvalues[att]
-            partition= []
-            for _ in range (len(vals)):
-                row= [0] * numclasses
-                partition.append(row)
-
-            for j in range(numclasses):
-                outcome=attvalues[atts[0][i]]
-                l=nodeData[outcome]
-
-                for l2 in l:
-                    partition[vals.index(l2[i])][j] += 1
-
-            ent= partition_entropy(partition)
-
-            if ent< minent:
-                minent= ent
-                minatt = att
-
-    if minatt is None:
-        max_count =0
-        max_class= "undefined"
-        for i in range (numclasses):
-            outcome= attvalues[atts[0]][j]
-            if len(nodeData[outcome]) >= max_count:
-                max_count= len(nodedata[outcome])
-                max_class = outcome
-
-        curr.returnval=max_class
+    curr = Treenode(parent)
+    total_rows = sum(len(rows) for rows in nodedata.values())
+    if total_rows == 0:
+        max_class = max(nodedata, key=lambda k: len(nodedata[k])) if nodedata else "undefined"
+        curr.returnval = max_class
         return curr
 
-    curr.attribute =minAtt
-    attindex= currfreeatts,index(minatt)
-    currfreeatts[attindex]= None
+    classes_with_data = [k for k, v in nodedata.items() if len(v) > 0]
+    if len(classes_with_data) == 1:
+        curr.returnval = classes_with_data[0]
+        return curr
 
-    for i in attvalues[minatt]:
-        tempmap= {}
-        for j in range (numclasses):
-            outcome= attvalues[atts[0]][j]
-            trimlist=[]
-            l = nodedata[outcome]
-            for l2 in l:
-                if l2[attindex] == v:
-                    trimlist.append(l2)
-            tempmap[outcome]= trimlist
-        print(v,"--->", end="")
-        curr.children
+    minent = float('inf')
+    minatt = None
+
+    for i, att in enumerate(currfreeatts):
+        if att is None:
+            continue
+        vals = attvalues[att]
+        partition = [[0]*numclasses for _ in range(len(vals))]
+
+        for j in range(numclasses):
+            outcome = attvalues[atts[0]][j]
+            l = nodedata.get(outcome, [])
+            for row in l:
+                partition[vals.index(row[i])][j] += 1
+
+        ent = partition_entropy(partition)
+        if ent < minent:
+            minent = ent
+            minatt = att
+
+    if minatt is None:
+        max_class = max(nodedata, key=lambda k: len(nodedata[k]))
+        curr.returnval = max_class
+        return curr
+
+    curr.attribute = minatt
+    attindex = currfreeatts.index(minatt)
+    currfreeatts[attindex] = None
+
+    for v in attvalues[minatt]:
+        tempmap = {}
+        for j in range(numclasses):
+            outcome = attvalues[atts[0]][j]
+            l = nodedata.get(outcome, [])
+            trimlist = [row for row in l if row[attindex] == v]
+            tempmap[outcome] = trimlist
+
+        if sum(len(rows) for rows in tempmap.values()) == 0:
+            max_class = max(nodedata, key=lambda k: len(nodedata[k]))
+            child = Treenode(curr)
+            child.returnval = max_class
+            curr.children[v] = child
+        else:
+            curr.children[v] = build_tree_node(curr, currfreeatts[:], tempmap)
+
+    currfreeatts[attindex] = minatt
+    return curr
 
 
+def partition_entropy(partition):
+    totalent= 0.0
+    total=0.0
+
+    for row in partition:
+        n= sum(row)
+        total += n
+        totalent += n * entropy(row)
+
+    if total==0:
+        return 0.0
+
+    return totalent / total
+
+def entropy(classcounts):
+    total= sum (classcounts)
+    if total ==0:
+        return 0.0
+
+    sument= 0.0
+    for count in classcounts:
+        if count > 0:
+            prob = count/total
+            sument -= prob *log2(prob)
+
+    return sument
+
+def log2(x):
+    if x== 0:
+        return 0
+    return math.log(x) / math.log(2)
+
+def save_model(modelfile):
+    try:
+        with open(modelfile,'w') as f:
+            for i in range (numatts):
+                f.write(atts[i+1]+ '')
+            f.write("\n")
+
+            write_node(f,root)
+    except IOError as e:
+        print("Error writing to file", e)
+    exit(1)
+
+def write_node(outfile,curr):
+    if curr.returnval is not None:
+        outfile.write("[" +curr.returnval+"]")
+        return
+    outfile.write(curr.attribute + " ( ")
+    for val, child in curr.children.items():
+        outfile.write(val + " ")
+        write_node(outfile, child)
+    outfile.write(" ) ")
+
+def read_model(modelfile):
+    with open(modelfile,'r') as f:
+        attline= f.readline().strip()
+        attarr= attline.split(
+
+        def read_node(tokens)
 
 
+        )
 
 
 def DTtrain(data, model):
-    """
-    This is the function for training a decision tree model
-    """
-    # implement your code here
+    global datamap, attvalues, atts,numatts, numclasses, root
 
-
-    pass
-
+    read_training_data(data,100)
+    build_tree()
+    save_model(model)
 
 
 def DTpredict(data, model, prediction):
