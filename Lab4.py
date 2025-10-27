@@ -1,5 +1,5 @@
 """
- Name: Your Name
+ Name: Bryan, Sam, Luna
  Assignment: Lab 4 - Decision Tree
  Course: CS 330
  Semester: Fall 2021
