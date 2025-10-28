@@ -357,7 +357,7 @@ def main():
         outPerf = options.output
         if predictionLabel == '' or trueLabel == '' or outPerf == '':
             showHelper()
-        EvaNB(predictionLabel,trueLabel, outPerf)
+        EvaDT(predictionLabel,trueLabel, outPerf)
     pass
 
 def showHelper():
